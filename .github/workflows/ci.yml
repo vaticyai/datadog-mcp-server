@@ -5,12 +5,14 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   docker:
     name: Build and Push Application Image
     runs-on: ubuntu-22.04
-    needs: test
     if: github.ref == 'refs/heads/main' || contains(github.ref, 'refs/tags')
     outputs:
       image_digest: ${{ steps.get_digest.outputs.image_digest }}
