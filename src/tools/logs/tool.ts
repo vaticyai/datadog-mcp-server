@@ -10,12 +10,12 @@ export const LOGS_TOOLS: LogsTool[] = [
   createToolSchema(
     GetLogsZodSchema,
     'get_logs',
-    'Search and retrieve logs from Datadog',
+    'Search and retrieve Logs from Datadog based on a query and time range',
   ),
   createToolSchema(
     GetAllServicesZodSchema,
     'get_all_services',
-    'Extract all unique service names from logs',
+    'Extract all unique service names from Logs stored in Datadog',
   ),
 ] as const
 
