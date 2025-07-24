@@ -10,12 +10,12 @@ export const DASHBOARDS_TOOLS: DashboardsTool[] = [
   createToolSchema(
     ListDashboardsZodSchema,
     'list_dashboards',
-    'Get list of dashboards from Datadog',
+    'Lists all Dashboards available in Datadog',
   ),
   createToolSchema(
     GetDashboardZodSchema,
     'get_dashboard',
-    'Get a dashboard from Datadog',
+    'Get a specific Dashboard from Datadog using its ID',
   ),
 ] as const
 
