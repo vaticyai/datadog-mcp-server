@@ -12,7 +12,7 @@ export const METRICS_TOOLS: MetricsTool[] = [
   createToolSchema(
     QueryMetricsZodSchema,
     'query_metrics',
-    'Query timeseries points of metrics from Datadog',
+    'Fetches metrics from Datadog based on a query and time range. Please provide a valid query string, start time (from), and end time (to) in epoch seconds.',
   ),
   createToolSchema(
     GetMetricsZodSchema,
