@@ -230,3 +230,62 @@ describe('Metrics Tool', () => {
     })
   })
 })
+
+describe('Tag validation for metrics', () => {
+  it('should return an error if query contains invalid tags', async () => {
+    // Mock v2 API for allowed tags
+    const allowedTags = ['env', 'host', 'region']
+    const v2ApiInstance: InstanceType<
+      typeof import('@datadog/datadog-api-client').v2.MetricsApi
+    > = {
+      listTagsByMetricName: async () => ({
+        data: { attributes: { tags: allowedTags.map((t) => `${t}:value`) } },
+      }),
+    } as unknown as InstanceType<
+      typeof import('@datadog/datadog-api-client').v2.MetricsApi
+    >
+    const v1ApiInstance: import('@datadog/datadog-api-client').v1.MetricsApi = {
+      queryMetrics: async () => ({}),
+    } as unknown as import('@datadog/datadog-api-client').v1.MetricsApi
+    const toolHandlers = createMetricsToolHandlers(v1ApiInstance, v2ApiInstance)
+    const request = createMockToolRequest('query_metrics', {
+      from: 1640995000,
+      to: 1641095000,
+      query: 'avg:system.cpu.user{env:prod,foo:bar,host:web-01}',
+    })
+    await expect(toolHandlers.query_metrics(request)).rejects.toThrow(
+      'invalid for metric',
+    )
+  })
+
+  it('should allow query if all tags are valid', async () => {
+    const allowedTags = ['env', 'host', 'region']
+    const v2ApiInstance: InstanceType<
+      typeof import('@datadog/datadog-api-client').v2.MetricsApi
+    > = {
+      listTagsByMetricName: async () => ({
+        data: { attributes: { tags: allowedTags.map((t) => `${t}:value`) } },
+      }),
+    } as unknown as InstanceType<
+      typeof import('@datadog/datadog-api-client').v2.MetricsApi
+    >
+    let called = false
+    const v1ApiInstance: import('@datadog/datadog-api-client').v1.MetricsApi = {
+      queryMetrics: async () => {
+        called = true
+        return { result: 'ok' }
+      },
+    } as unknown as import('@datadog/datadog-api-client').v1.MetricsApi
+    const toolHandlers = createMetricsToolHandlers(v1ApiInstance, v2ApiInstance)
+    const request = createMockToolRequest('query_metrics', {
+      from: 1640995000,
+      to: 1641095000,
+      query: 'avg:system.cpu.user{env:prod,host:web-01}',
+    })
+    const response = (await toolHandlers.query_metrics(
+      request,
+    )) as unknown as DatadogToolResponse
+    expect(called).toBe(true)
+    expect(response.content[0].text).toContain('Queried metrics data:')
+  })
+})

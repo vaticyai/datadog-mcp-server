@@ -28,6 +28,10 @@ import { ToolHandlers } from './utils/types'
 import { createDatadogConfig } from './utils/datadog'
 import { createDowntimesToolHandlers, DOWNTIMES_TOOLS } from './tools/downtimes'
 import { createRumToolHandlers, RUM_TOOLS } from './tools/rum'
+import {
+  METRIC_TAGS_TOOLS,
+  createMetricTagsToolHandlers,
+} from './tools/metric-tags'
 import { v2, v1 } from '@datadog/datadog-api-client'
 
 const server = new Server(
@@ -55,6 +59,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     tools: [
       ...INCIDENT_TOOLS,
       ...METRICS_TOOLS,
+      ...METRIC_TAGS_TOOLS,
       ...LOGS_TOOLS,
       ...MONITORS_TOOLS,
       ...DASHBOARDS_TOOLS,
@@ -76,9 +81,12 @@ const datadogConfig = createDatadogConfig({
   site: process.env.DATADOG_SITE,
 })
 
+const v1MetricsApi = new v1.MetricsApi(datadogConfig)
+const v2MetricsApi = new v2.MetricsApi(datadogConfig)
 const TOOL_HANDLERS: ToolHandlers = {
   ...createIncidentToolHandlers(new v2.IncidentsApi(datadogConfig)),
-  ...createMetricsToolHandlers(new v1.MetricsApi(datadogConfig)),
+  ...createMetricsToolHandlers(v1MetricsApi, v2MetricsApi),
+  ...createMetricTagsToolHandlers(v2MetricsApi),
   ...createLogsToolHandlers(new v2.LogsApi(datadogConfig)),
   ...createMonitorsToolHandlers(new v1.MonitorsApi(datadogConfig)),
   ...createDashboardsToolHandlers(new v1.DashboardsApi(datadogConfig)),
