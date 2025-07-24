@@ -5,14 +5,21 @@ import { GetMonitorsZodSchema } from './schema'
 import { unreachable } from '../../utils/helper'
 import { UnparsedObject } from '@datadog/datadog-api-client/dist/packages/datadog-api-client-common/util.js'
 
-type MonitorsToolName = 'get_monitors'
+import { z } from 'zod'
+
+type MonitorsToolName = 'get_monitors' | 'get_monitor'
 type MonitorsTool = ExtendedTool<MonitorsToolName>
 
 export const MONITORS_TOOLS: MonitorsTool[] = [
   createToolSchema(
     GetMonitorsZodSchema,
     'get_monitors',
-    'Get monitors status from Datadog',
+    'Get all monitors from Datadog',
+  ),
+  createToolSchema(
+    z.object({ monitorId: z.number() }),
+    'get_monitor',
+    'Get a specific monitor from Datadog',
   ),
 ] as const
 
@@ -106,6 +113,29 @@ export const createMonitorsToolHandlers = (
             text: `Summary of monitors: ${JSON.stringify(summary)}`,
           },
         ],
+      }
+    },
+    get_monitor: async (request) => {
+      // Validate and extract monitorId
+      const { monitorId } = z
+        .object({ monitorId: z.number() })
+        .parse(request.params.arguments)
+      try {
+        const monitor = await apiInstance.getMonitor({ monitorId })
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Monitor metadata: ${JSON.stringify(monitor)}`,
+            },
+          ],
+        }
+      } catch (error) {
+        console.error(
+          `Error fetching metadata for monitor ${monitorId}:`,
+          error,
+        )
+        throw error
       }
     },
   }
