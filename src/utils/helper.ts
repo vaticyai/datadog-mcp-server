@@ -20,3 +20,34 @@ export { version as mcpDatadogVersion } from '../../package.json'
 export function unreachable(value: never): never {
   throw new Error(`Unreachable code: ${value}`)
 }
+
+/**
+ * Parses a Datadog metrics query string and extracts the metric name and tags.
+ * Example query: 'avg:system.cpu.user{env:prod,host:web-01}'
+ * Returns: { metric: 'system.cpu.user', tags: ['env:prod', 'host:web-01'] }
+ */
+export function parseMetricQuery(query: string): {
+  metric: string | null
+  tags: string[]
+} {
+  // Remove any function prefix (e.g., avg:) if present
+  let metricAndTags = query
+  const colonIdx = query.indexOf(':')
+  if (colonIdx !== -1) {
+    const braceIdx = query.indexOf('{')
+    if (braceIdx === -1 || colonIdx < braceIdx) {
+      metricAndTags = query.slice(colonIdx + 1)
+    }
+  }
+  // Extract metric name and tags
+  const metricMatch = metricAndTags.match(/^([^{]+)(?:\{([^}]*)\})?$/)
+  if (!metricMatch) return { metric: null, tags: [] }
+  const metric = metricMatch[1].trim()
+  const tags = metricMatch[2]
+    ? metricMatch[2]
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean)
+    : []
+  return { metric, tags }
+}
