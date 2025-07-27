@@ -16,7 +16,18 @@ const tagsHandler = http.get(
         id: 'test.metric',
         type: 'metric_tags',
         attributes: {
-          tags: ['env:prod', 'region:us-east-1', 'service:web'],
+          tags: [
+            'env:prod',
+            'env:dev',
+            'region:us-east-1',
+            'region:us-west-2',
+            'service:web',
+            'service:api',
+            'cluster:aws-production',
+            'cluster:azure-dev',
+            'kube_deployment:memgraph-lab',
+            'kube_deployment:n8n',
+          ],
         },
       },
     })
@@ -38,7 +49,7 @@ describe('Metric Tags Tool', () => {
   const toolHandlers = createMetricTagsToolHandlers(apiInstance)
 
   describe.concurrent('list_tags_by_metric_name', async () => {
-    it('should list tags for a given metric name', async () => {
+    it('should list tag names for a given metric name', async () => {
       const server = setupServer(tagsHandler)
 
       await server.boundary(async () => {
@@ -49,10 +60,30 @@ describe('Metric Tags Tool', () => {
           request,
         )) as unknown as DatadogToolResponse
 
-        expect(response.content[0].text).toContain('Tags for metric')
-        expect(response.content[0].text).toContain('env:prod')
-        expect(response.content[0].text).toContain('region:us-east-1')
-        expect(response.content[0].text).toContain('service:web')
+        expect(response.content[0].text).toContain('Tag names for metric')
+        expect(response.content[0].text).toContain('env')
+        expect(response.content[0].text).toContain('region')
+        expect(response.content[0].text).toContain('service')
+        expect(response.content[0].text).toContain('cluster')
+        expect(response.content[0].text).toContain('kube_deployment')
+
+        // Verify that the response contains unique tag names only
+        const responseText = response.content[0].text
+
+        // Extract the JSON array from the response text
+        const jsonMatch = responseText.match(/\[.*\]/)
+        expect(jsonMatch).toBeTruthy()
+
+        if (jsonMatch) {
+          const tagNames = JSON.parse(jsonMatch[0])
+          expect(tagNames).toEqual([
+            'env',
+            'region',
+            'service',
+            'cluster',
+            'kube_deployment',
+          ])
+        }
       })()
 
       server.close()
