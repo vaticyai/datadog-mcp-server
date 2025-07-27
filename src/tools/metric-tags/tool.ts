@@ -10,7 +10,7 @@ export const METRIC_TAGS_TOOLS: MetricTagsTool[] = [
   createToolSchema(
     ListTagsByMetricNameZodSchema,
     'list_tags_by_metric_name',
-    'List all tags for a given metric name using Datadog API',
+    'List all tag names for a given metric name using Datadog API',
   ),
 ] as const
 
@@ -27,11 +27,23 @@ export const createMetricTagsToolHandlers = (
       const response = await apiInstance.listTagsByMetricName({
         metricName: metric_name,
       })
+
+      const fullTags = response.data?.attributes?.tags ?? []
+
+      // Extract unique tag names (before the colon)
+      const tagNames = [
+        ...new Set(
+          fullTags
+            .map((tag) => tag.split(':')[0])
+            .filter((tagName) => tagName.length > 0),
+        ),
+      ]
+
       return {
         content: [
           {
             type: 'text',
-            text: `Tags for metric '${metric_name}': ${JSON.stringify(response.data?.attributes?.tags ?? [])}`,
+            text: `Tag names for metric '${metric_name}': ${JSON.stringify(tagNames)}`,
           },
         ],
       }

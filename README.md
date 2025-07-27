@@ -72,25 +72,36 @@ MCP server for the Datadog API, enabling incident management and more.
    - **Returns**: Metrics data for the queried timeframe, or an error if invalid tags are used.
 
 8. `list_tags_by_metric_name`
-   - List all tags for a given metric name using the Datadog API.
+   - List all tag names for a given metric name using the Datadog API.
    - **Inputs**:
      - `metric_name` (string): The name of the metric to retrieve tags for. Example: `system.cpu.user`
-   - **Returns**: An array of tags (strings) that are allowed for the specified metric. Each tag is in the form `tag_key:tag_value` (e.g., `host:web-01`).
-   - **Usage**: Use this tool to discover which tag keys are valid for a metric, so you can construct valid queries for the [`query_metrics`](#query_metrics) tool.
+   - **Returns**: An array of unique tag names (strings) that are allowed for the specified metric. Each tag name is just the key part (e.g., `host`, `env`, `service`) without the values.
+   - **Usage**: Use this tool to discover which tag keys are valid for a metric, so you can construct valid queries for the [`query_metrics`](#query_metrics) tool. The tool returns unique tag names only, so if you have tags like `env:prod` and `env:dev`, it will return `["env"]` instead of the full tag list.
 
-9. `list_traces`
-   - Retrieve a list of APM traces from Datadog.
+9. `search_metric_tags`
+   - Search for tags of a specific metric name that match a given string. Supports both exact string matching and regex patterns.
    - **Inputs**:
-     - `query` (string): Datadog APM trace query string.
-     - `from` (number): Start time in epoch seconds.
-     - `to` (number): End time in epoch seconds.
-     - `limit` (optional number): Maximum number of traces to return (defaults to 100).
-     - `sort` (optional string): Sort order for traces (defaults to '-timestamp').
-     - `service` (optional string): Filter by service name.
-     - `operation` (optional string): Filter by operation name.
-   - **Returns**: Array of matching traces from Datadog APM.
+     - `metric_name` (string): The name of the metric to search tags for. Example: `kubernetes.cpu.usage.total`
+     - `search_string` (string): The string to search for in the metric tags. Example: `presidio-analyzer`
+     - `use_regex` (optional boolean): Whether to treat the search string as a regex pattern. Defaults to false.
+   - **Returns**: An array of matching tags that contain the search string. The search is performed on the entire tag string (both tag name and value).
+   - **Usage Examples**:
+     - Exact string matching: Search for `"presidio-analyzer"` to find tags like `"kube_deployment:third-party-presidio-analyzer"`
+     - Regex pattern matching: Search for `"presidio|analyzer"` with `use_regex: true` to find tags containing either "presidio" or "analyzer"
 
-10. `list_hosts`
+10. `list_traces`
+    - Retrieve a list of APM traces from Datadog.
+    - **Inputs**:
+      - `query` (string): Datadog APM trace query string.
+      - `from` (number): Start time in epoch seconds.
+      - `to` (number): End time in epoch seconds.
+      - `limit` (optional number): Maximum number of traces to return (defaults to 100).
+      - `sort` (optional string): Sort order for traces (defaults to '-timestamp').
+      - `service` (optional string): Filter by service name.
+      - `operation` (optional string): Filter by operation name.
+    - **Returns**: Array of matching traces from Datadog APM.
+
+11. `list_hosts`
     - Get list of hosts from Datadog.
     - **Inputs**:
       - `filter` (optional string): Filter string for search results.
@@ -103,13 +114,13 @@ MCP server for the Datadog API, enabling incident management and more.
       - `include_hosts_metadata` (optional boolean): Include host metadata (version, platform, etc).
     - **Returns**: Array of hosts with details including name, ID, aliases, apps, mute status, and more.
 
-11. `get_active_hosts_count`
+12. `get_active_hosts_count`
     - Get the total number of active hosts in Datadog.
     - **Inputs**:
       - `from` (optional number): Number of seconds from which you want to get total number of active hosts (defaults to 2h).
     - **Returns**: Count of total active and up hosts.
 
-12. `mute_host`
+13. `mute_host`
     - Mute a host in Datadog.
     - **Inputs**:
       - `hostname` (string): The name of the host to mute.
@@ -118,20 +129,20 @@ MCP server for the Datadog API, enabling incident management and more.
       - `override` (optional boolean): If true and the host is already muted, replaces existing end time.
     - **Returns**: Success status and confirmation message.
 
-13. `unmute_host`
+14. `unmute_host`
     - Unmute a host in Datadog.
     - **Inputs**:
       - `hostname` (string): The name of the host to unmute.
     - **Returns**: Success status and confirmation message.
 
-14. `list_downtimes`
+15. `list_downtimes`
     - List scheduled downtimes from Datadog.
     - **Inputs**:
       - `currentOnly` (optional boolean): Return only currently active downtimes when true.
       - `monitorId` (optional number): Filter by monitor ID.
     - **Returns**: Array of scheduled downtimes with details including scope, monitor information, and schedule.
 
-15. `schedule_downtime`
+16. `schedule_downtime`
     - Schedule a downtime in Datadog.
     - **Inputs**:
       - `scope` (string): Scope to apply downtime to (e.g. 'host:my-host').
@@ -148,18 +159,18 @@ MCP server for the Datadog API, enabling incident management and more.
         - `until` (optional number): UNIX timestamp for when the recurrence ends.
     - **Returns**: Scheduled downtime details including ID and active status.
 
-16. `cancel_downtime`
+17. `cancel_downtime`
     - Cancel a scheduled downtime in Datadog.
     - **Inputs**:
       - `downtimeId` (number): The ID of the downtime to cancel.
     - **Returns**: Confirmation of downtime cancellation.
 
-17. `get_rum_applications`
+18. `get_rum_applications`
     - Get all RUM applications in the organization.
     - **Inputs**: None.
     - **Returns**: List of RUM applications.
 
-18. `get_rum_events`
+19. `get_rum_events`
     - Search and retrieve RUM events from Datadog.
     - **Inputs**:
       - `query` (string): Datadog RUM query string.
@@ -168,7 +179,7 @@ MCP server for the Datadog API, enabling incident management and more.
       - `limit` (optional number): Maximum number of events to return (default: 100).
     - **Returns**: Array of RUM events.
 
-19. `get_rum_grouped_event_count`
+20. `get_rum_grouped_event_count`
     - Search, group and count RUM events by a specified dimension.
     - **Inputs**:
       - `query` (optional string): Additional query filter for RUM search (default: "\*").
@@ -177,7 +188,7 @@ MCP server for the Datadog API, enabling incident management and more.
       - `groupBy` (optional string): Dimension to group results by (default: "application.name").
     - **Returns**: Grouped event counts.
 
-20. `get_rum_page_performance`
+21. `get_rum_page_performance`
     - Get page (view) performance metrics from RUM data.
     - **Inputs**:
       - `query` (optional string): Additional query filter for RUM search (default: "\*").
@@ -186,7 +197,7 @@ MCP server for the Datadog API, enabling incident management and more.
       - `metricNames` (array of strings): Array of metric names to retrieve (e.g., 'view.load_time', 'view.first_contentful_paint').
     - **Returns**: Performance metrics including average, min, max, and count for each metric.
 
-21. `get_rum_page_waterfall`
+22. `get_rum_page_waterfall`
     - Retrieve RUM page (view) waterfall data filtered by application name and session ID.
     - **Inputs**:
       - `applicationName` (string): Application name to filter events.
