@@ -44,6 +44,26 @@ export async function validateMetricTags({
     'with tags:',
     JSON.stringify(tags),
   )
+
+  // Filter out wildcard tags from validation - they are always valid
+  const tagsToValidate = tags.filter((tag) => {
+    const trimmedTag = tag.trim()
+    return trimmedTag !== '*' && trimmedTag !== '' && !isWildcardTag(trimmedTag)
+  })
+
+  // If no tags need validation, return early
+  if (tagsToValidate.length === 0) {
+    log(
+      'info',
+      `[validateMetricTags] No tags to validate (only wildcards or empty tags)`,
+    )
+    return {
+      valid: true,
+      invalidTags: [],
+      allowedTagKeys: [],
+    }
+  }
+
   // Fetch allowed tags for the metric
   const response = await v2ApiInstance.listTagsByMetricName({
     metricName: metric,
@@ -60,10 +80,17 @@ export async function validateMetricTags({
     ':',
     JSON.stringify(allowedTagKeys),
   )
-  const queryTagKeys = Array.from(new Set(tags.map((t) => t.split(':')[0])))
-  const invalidTags = queryTagKeys.filter(
-    (tag) => !allowedTagKeys.includes(tag),
+
+  // Extract tag keys from the tags to validate
+  const queryTagKeys = Array.from(
+    new Set(tagsToValidate.map((t) => t.split(':')[0])),
   )
+
+  // Find invalid tag keys (excluding wildcards)
+  const invalidTags = queryTagKeys.filter(
+    (tagKey) => !allowedTagKeys.includes(tagKey) && !isWildcardTag(tagKey),
+  )
+
   if (invalidTags.length > 0) {
     log(
       'info',
@@ -76,6 +103,21 @@ export async function validateMetricTags({
     invalidTags,
     allowedTagKeys,
   }
+}
+
+/**
+ * Checks if a tag or tag key is a wildcard pattern.
+ * Wildcards are always considered valid and should not be validated against allowed tags.
+ * Examples: '*', 'host:*', '*:value'
+ */
+function isWildcardTag(tag: string): boolean {
+  const trimmedTag = tag.trim()
+  return (
+    trimmedTag === '*' ||
+    trimmedTag.startsWith('*:') ||
+    trimmedTag.endsWith(':*') ||
+    trimmedTag.includes('*')
+  )
 }
 
 // Custom error for invalid arguments
