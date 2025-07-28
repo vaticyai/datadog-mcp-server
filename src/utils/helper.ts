@@ -101,15 +101,15 @@ export function parseMetricQuery(query: string): {
 
     // Handle complex expressions with AND/OR and parentheses
     const normalizedContent = tagContent
-      .replace(/\s+AND\s+/g, ' AND ')
-      .replace(/\s+OR\s+/g, ' OR ')
+      .replace(/\s+AND\s+/gi, ' AND ') // Case-insensitive match for AND
+      .replace(/\s+OR\s+/gi, ' OR ') // Case-insensitive match for OR
 
     // Split by OR first
-    const orGroups = normalizedContent.split(' OR ')
+    const orGroups = normalizedContent.split(/ OR /i)
 
     orGroups.forEach((group) => {
       // Handle AND groups
-      const andGroups = group.split(' AND ')
+      const andGroups = group.split(/ AND /i)
 
       andGroups.forEach((tag) => {
         // Remove any parentheses
@@ -145,6 +145,7 @@ export function parseMetricQuery(query: string): {
  * - "env:prod,host:web-01" -> ["env:prod", "host:web-01"]
  * - "name:alb-1 OR name:alb-2 OR name:alb-3" -> ["name:alb-1", "name:alb-2", "name:alb-3"]
  * - "env:prod AND (name:alb-1 OR name:alb-2)" -> ["env:prod", "name:alb-1", "name:alb-2"]
+ * - "env:prod and (name:alb-1 or name:alb-2)" -> ["env:prod", "name:alb-1", "name:alb-2"]
  */
 function parseTagsWithOperators(tagsString: string): string[] {
   if (!tagsString.trim()) return []
@@ -176,15 +177,15 @@ function parseTagsWithOperators(tagsString: string): string[] {
       current = ''
     } else if (
       inParens === 0 &&
-      (tagsString.slice(i, i + 4) === ' OR ' ||
-        tagsString.slice(i, i + 5) === ' AND ')
+      (tagsString.slice(i, i + 4).toLowerCase() === ' or ' ||
+        tagsString.slice(i, i + 5).toLowerCase() === ' and ')
     ) {
-      // OR/AND operator
+      // OR/AND operator (case insensitive)
       if (current.trim()) {
         tags.push(...extractTagsFromExpression(current.trim()))
       }
       // Skip the operator
-      i += tagsString.slice(i, i + 4) === ' OR ' ? 3 : 4 // Skip " OR" or " AND"
+      i += tagsString.slice(i, i + 4).toLowerCase() === ' or ' ? 3 : 4
       current = ''
     } else {
       current += char

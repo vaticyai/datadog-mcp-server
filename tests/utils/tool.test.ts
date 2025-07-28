@@ -185,4 +185,20 @@ describe('parseMetricQuery', () => {
     expect(result.metric).toBe('system.cpu.user')
     expect(result.tags).toEqual(['service:web-*', 'service!~api-*', 'env:prod'])
   })
+
+  it('parses tags with lowercase and/or operators', () => {
+    const result = parseMetricQuery(
+      'system.cpu.user{env:prod and (name:alb-1 or name:alb-2)}',
+    )
+    expect(result.metric).toBe('system.cpu.user')
+    expect(result.tags).toEqual(['env:prod', 'name:alb-1', 'name:alb-2'])
+  })
+
+  it('parses tags with mixed-case and/or operators', () => {
+    const result = parseMetricQuery(
+      'system.cpu.user{env:prod And (name:alb-1 oR name:alb-2)}',
+    )
+    expect(result.metric).toBe('system.cpu.user')
+    expect(result.tags).toEqual(['env:prod', 'name:alb-1', 'name:alb-2'])
+  })
 })
