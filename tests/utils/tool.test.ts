@@ -84,11 +84,105 @@ describe('parseMetricQuery', () => {
   it('parses metric with empty tag braces', () => {
     const result = parseMetricQuery('my.metric{}')
     expect(result.metric).toBe('my.metric')
+    expect(result.tags).toEqual(['*']) // Empty braces now correctly returns wildcard
+  })
+  it('returns empty metric for invalid query', () => {
+    const result = parseMetricQuery('')
+    expect(result.metric).toBe('') // Empty string now returns empty string instead of null
     expect(result.tags).toEqual([])
   })
-  it('returns null metric for invalid query', () => {
-    const result = parseMetricQuery('')
-    expect(result.metric).toBeNull()
-    expect(result.tags).toEqual([])
+
+  it('parses metric with OR operators in tags', () => {
+    const result = parseMetricQuery(
+      'sum:aws.applicationelb.httpcode_elb_5xx{name:alb-1 OR name:alb-2 OR name:alb-3}',
+    )
+    expect(result.metric).toBe('aws.applicationelb.httpcode_elb_5xx')
+    expect(result.tags).toEqual(['name:alb-1', 'name:alb-2', 'name:alb-3'])
+  })
+
+  it('parses complex query with function prefix and OR operators', () => {
+    const result = parseMetricQuery(
+      'sum(last_5m):sum:aws.applicationelb.httpcode_elb_5xx{name:alb-1 OR name:alb-2 OR name:alb-3} by {name}.as_count() > 500',
+    )
+    expect(result.metric).toBe('aws.applicationelb.httpcode_elb_5xx')
+    expect(result.tags).toEqual(['name:alb-1', 'name:alb-2', 'name:alb-3'])
+  })
+
+  it('parses metric with AND and OR operators', () => {
+    const result = parseMetricQuery(
+      'avg:system.cpu.user{env:prod AND (name:alb-1 OR name:alb-2)}',
+    )
+    expect(result.metric).toBe('system.cpu.user')
+    expect(result.tags).toEqual(['env:prod', 'name:alb-1', 'name:alb-2'])
+  })
+
+  it('parses metric with wildcard tags mixed with specific tags', () => {
+    const result = parseMetricQuery('avg:system.cpu.user{host:*,env:prod}')
+    expect(result.metric).toBe('system.cpu.user')
+    expect(result.tags).toEqual(['host:*', 'env:prod'])
+  })
+
+  it('parses metric with complex nested expressions', () => {
+    const result = parseMetricQuery(
+      'avg:system.cpu.user{(env:prod OR env:staging) AND host:web-*}',
+    )
+    expect(result.metric).toBe('system.cpu.user')
+    expect(result.tags).toEqual(['env:prod', 'env:staging', 'host:web-*'])
+  })
+
+  it('parses arithmetic operations between metrics', () => {
+    const result = parseMetricQuery('avg:system.cpu.user{*} * 100')
+    expect(result.metric).toBe('system.cpu.user')
+    expect(result.tags).toEqual(['*'])
+  })
+
+  it('parses time-shift operations', () => {
+    const result = parseMetricQuery(
+      'timeshift(avg:system.cpu.user{env:prod}, -1d)',
+    )
+    expect(result.metric).toBe('system.cpu.user')
+    expect(result.tags).toEqual(['env:prod'])
+  })
+
+  it('parses rollup functions', () => {
+    const result = parseMetricQuery('avg:system.cpu.user{*}.rollup(sum, 30)')
+    expect(result.metric).toBe('system.cpu.user')
+    expect(result.tags).toEqual(['*'])
+  })
+
+  it('parses regex tag filters', () => {
+    const result = parseMetricQuery(
+      'system.cpu.user{service!~web-api,env:prod}',
+    )
+    expect(result.metric).toBe('system.cpu.user')
+    expect(result.tags).toEqual(['service!~web-api', 'env:prod'])
+  })
+
+  it('parses wildcard tag filters', () => {
+    const result = parseMetricQuery('system.cpu.user{service:web-*}')
+    expect(result.metric).toBe('system.cpu.user')
+    expect(result.tags).toEqual(['service:web-*'])
+  })
+
+  it('parses complex arithmetic and functions', () => {
+    const result = parseMetricQuery(
+      'sum:system.cpu.user{*}.rollup(avg, 60) / timeshift(sum:system.cpu.user{*}, -1d)',
+    )
+    expect(result.metric).toBe('system.cpu.user')
+    expect(result.tags).toEqual(['*'])
+  })
+
+  it('parses multiple aggregation functions', () => {
+    const result = parseMetricQuery('avg:sum:system.cpu.user{*} by {host}')
+    expect(result.metric).toBe('system.cpu.user')
+    expect(result.tags).toEqual(['*'])
+  })
+
+  it('parses complex tag combinations with wildcards', () => {
+    const result = parseMetricQuery(
+      'system.cpu.user{service:web-* OR service!~api-*, env:prod}',
+    )
+    expect(result.metric).toBe('system.cpu.user')
+    expect(result.tags).toEqual(['service:web-*', 'service!~api-*', 'env:prod'])
   })
 })
