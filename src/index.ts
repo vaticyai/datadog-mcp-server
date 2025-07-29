@@ -36,6 +36,10 @@ import {
   METRIC_TAG_SEARCH_TOOLS,
   createMetricTagSearchToolHandlers,
 } from './tools/metric-tag-search'
+import {
+  METRIC_METADATA_TOOLS,
+  createMetricMetadataToolHandlers,
+} from './tools/metric-metadata'
 import { v2, v1 } from '@datadog/datadog-api-client'
 
 const server = new Server(
@@ -65,6 +69,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       ...METRICS_TOOLS,
       ...METRIC_TAGS_TOOLS,
       ...METRIC_TAG_SEARCH_TOOLS,
+      ...METRIC_METADATA_TOOLS,
       ...LOGS_TOOLS,
       ...MONITORS_TOOLS,
       ...DASHBOARDS_TOOLS,
@@ -93,6 +98,7 @@ const TOOL_HANDLERS: ToolHandlers = {
   ...createMetricsToolHandlers(v1MetricsApi, v2MetricsApi),
   ...createMetricTagsToolHandlers(v2MetricsApi),
   ...createMetricTagSearchToolHandlers(v2MetricsApi),
+  ...createMetricMetadataToolHandlers(v1MetricsApi),
   ...createLogsToolHandlers(new v2.LogsApi(datadogConfig)),
   ...createMonitorsToolHandlers(new v1.MonitorsApi(datadogConfig)),
   ...createDashboardsToolHandlers(new v1.DashboardsApi(datadogConfig)),
