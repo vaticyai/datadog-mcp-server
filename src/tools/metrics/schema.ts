@@ -28,6 +28,7 @@ export type GetMetricsArgs = z.infer<typeof GetMetricsZodSchema>
 export const FilterMetricsByTagsZodSchema = z.object({
   tags: z
     .array(z.string())
+    .min(1, 'At least one tag is required')
     .describe(
       'Array of tags to filter metrics by. e.g. ["kube_deployment:api-gateway", "env:prod"]',
     ),

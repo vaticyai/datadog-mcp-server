@@ -417,4 +417,58 @@ describe('filter_metrics_by_tags', () => {
       } as z.infer<typeof CallToolRequestSchema>),
     ).rejects.toThrow('Failed to filter metrics by tags: Error: API Error')
   })
+
+  it('should require at least one tag', async () => {
+    const mockV2Api: InstanceType<
+      typeof import('@datadog/datadog-api-client').v2.MetricsApi
+    > = {
+      listTagConfigurations: async () => ({}),
+    } as unknown as InstanceType<
+      typeof import('@datadog/datadog-api-client').v2.MetricsApi
+    >
+
+    const mockV1Api: import('@datadog/datadog-api-client').v1.MetricsApi = {
+      queryMetrics: async () => ({}),
+    } as unknown as import('@datadog/datadog-api-client').v1.MetricsApi
+
+    const handlers = createMetricsToolHandlers(mockV1Api, mockV2Api)
+
+    await expect(
+      handlers.filter_metrics_by_tags({
+        method: 'tools/call',
+        params: {
+          name: 'filter_metrics_by_tags',
+          arguments: {
+            tags: [],
+          },
+        },
+      } as z.infer<typeof CallToolRequestSchema>),
+    ).rejects.toThrow('At least one tag is required')
+  })
+
+  it('should require tags argument to be provided', async () => {
+    const mockV2Api: InstanceType<
+      typeof import('@datadog/datadog-api-client').v2.MetricsApi
+    > = {
+      listTagConfigurations: async () => ({}),
+    } as unknown as InstanceType<
+      typeof import('@datadog/datadog-api-client').v2.MetricsApi
+    >
+
+    const mockV1Api: import('@datadog/datadog-api-client').v1.MetricsApi = {
+      queryMetrics: async () => ({}),
+    } as unknown as import('@datadog/datadog-api-client').v1.MetricsApi
+
+    const handlers = createMetricsToolHandlers(mockV1Api, mockV2Api)
+
+    await expect(
+      handlers.filter_metrics_by_tags({
+        method: 'tools/call',
+        params: {
+          name: 'filter_metrics_by_tags',
+          arguments: {},
+        },
+      } as z.infer<typeof CallToolRequestSchema>),
+    ).rejects.toThrow('Required')
+  })
 })
