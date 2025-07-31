@@ -1,11 +1,18 @@
 import { ExtendedTool, ToolHandlers } from '../../utils/types'
 import { v1 } from '@datadog/datadog-api-client'
 import { createToolSchema } from '../../utils/tool'
-import { QueryMetricsZodSchema, GetMetricsZodSchema } from './schema'
+import {
+  QueryMetricsZodSchema,
+  GetMetricsZodSchema,
+  FilterMetricsByTagsZodSchema,
+} from './schema'
 import { log, parseMetricQuery } from '../../utils/helper'
 import type { v2 as V2Namespace } from '@datadog/datadog-api-client'
 
-type MetricsToolName = 'query_metrics' | 'search_metrics'
+type MetricsToolName =
+  | 'query_metrics'
+  | 'search_metrics'
+  | 'filter_metrics_by_tags'
 type MetricsTool = ExtendedTool<MetricsToolName>
 
 export const METRICS_TOOLS: MetricsTool[] = [
@@ -18,6 +25,11 @@ export const METRICS_TOOLS: MetricsTool[] = [
     GetMetricsZodSchema,
     'search_metrics',
     'Searches a sub-string from all DataDog metrics names. Please provide a query string to filter the metrics.',
+  ),
+  createToolSchema(
+    FilterMetricsByTagsZodSchema,
+    'filter_metrics_by_tags',
+    'Returns all metric names that have the specified tags. Please provide a list of tags to find metrics that have these tags.',
   ),
 ] as const
 
@@ -190,6 +202,50 @@ export const createMetricsToolHandlers = (
             text: `Fetched metrics: ${JSON.stringify(response)}`,
           },
         ],
+      }
+    },
+    filter_metrics_by_tags: async (request) => {
+      const { tags } = FilterMetricsByTagsZodSchema.parse(
+        request.params.arguments,
+      )
+      log(
+        'info',
+        `[filter_metrics_by_tags] Filtering metrics by tags:`,
+        JSON.stringify(tags),
+      )
+
+      try {
+        // Use the v1 API to list active metrics with tag filter
+        // According to Datadog API docs, we should use listActiveMetrics with tagFilter parameter
+        const tagFilter = tags.join(',')
+
+        log('info', `[filter_metrics_by_tags] Using tagFilter:`, tagFilter)
+
+        const response = await apiInstance.listActiveMetrics({
+          from: Math.floor(Date.now() / 1000) - 3600, // Last hour
+          tagFilter: tagFilter,
+        })
+
+        log(
+          'info',
+          `[filter_metrics_by_tags] Response:`,
+          JSON.stringify(response),
+        )
+
+        // Extract metric names from the response
+        const metricNames = response.metrics || []
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Found ${metricNames.length} metrics with tags ${JSON.stringify(tags)}: ${JSON.stringify(metricNames)}`,
+            },
+          ],
+        }
+      } catch (error) {
+        log('error', `[filter_metrics_by_tags] Error:`, error)
+        throw new Error(`Failed to filter metrics by tags: ${error}`)
       }
     },
   }

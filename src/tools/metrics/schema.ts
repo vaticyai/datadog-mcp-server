@@ -24,3 +24,15 @@ export const GetMetricsZodSchema = z.object({
 })
 
 export type GetMetricsArgs = z.infer<typeof GetMetricsZodSchema>
+
+export const FilterMetricsByTagsZodSchema = z.object({
+  tags: z
+    .array(z.string())
+    .describe(
+      'Array of tags to filter metrics by. e.g. ["kube_deployment:api-gateway", "env:prod"]',
+    ),
+})
+
+export type FilterMetricsByTagsArgs = z.infer<
+  typeof FilterMetricsByTagsZodSchema
+>

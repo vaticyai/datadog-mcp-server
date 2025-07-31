@@ -6,6 +6,8 @@ import { createMockToolRequest } from '../helpers/mock'
 import { http, HttpResponse } from 'msw'
 import { setupServer } from '../helpers/msw'
 import { baseUrl, DatadogToolResponse } from '../helpers/datadog'
+import { CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js'
+import { z } from 'zod'
 
 const metricsEndpoint = `${baseUrl}/v1/query`
 
@@ -287,5 +289,55 @@ describe('Tag validation for metrics', () => {
     )) as unknown as DatadogToolResponse
     expect(called).toBe(true)
     expect(response.content[0].text).toContain('Queried metrics data:')
+  })
+})
+
+describe('filter_metrics_by_tags', () => {
+  it('should filter metrics by tags using v1 API', async () => {
+    const mockV1Api: import('@datadog/datadog-api-client').v1.MetricsApi = {
+      listActiveMetrics: async () => ({
+        metrics: ['metric1', 'metric2'],
+      }),
+    } as unknown as import('@datadog/datadog-api-client').v1.MetricsApi
+
+    const handlers = createMetricsToolHandlers(mockV1Api)
+
+    const result = (await handlers.filter_metrics_by_tags({
+      method: 'tools/call',
+      params: {
+        name: 'filter_metrics_by_tags',
+        arguments: {
+          tags: ['kube_deployment:api-gateway', 'env:prod'],
+        },
+      },
+    } as z.infer<
+      typeof CallToolRequestSchema
+    >)) as unknown as DatadogToolResponse
+
+    expect(result.content[0].text).toContain('Found 2 metrics with tags')
+    expect(result.content[0].text).toContain('metric1')
+    expect(result.content[0].text).toContain('metric2')
+  })
+
+  it('should handle API errors gracefully', async () => {
+    const mockV1Api: import('@datadog/datadog-api-client').v1.MetricsApi = {
+      listActiveMetrics: async () => {
+        throw new Error('API Error')
+      },
+    } as unknown as import('@datadog/datadog-api-client').v1.MetricsApi
+
+    const handlers = createMetricsToolHandlers(mockV1Api)
+
+    await expect(
+      handlers.filter_metrics_by_tags({
+        method: 'tools/call',
+        params: {
+          name: 'filter_metrics_by_tags',
+          arguments: {
+            tags: ['kube_deployment:api-gateway'],
+          },
+        },
+      } as z.infer<typeof CallToolRequestSchema>),
+    ).rejects.toThrow('Failed to filter metrics by tags: Error: API Error')
   })
 })
