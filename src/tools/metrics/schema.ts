@@ -31,6 +31,12 @@ export const FilterMetricsByTagsZodSchema = z.object({
     .describe(
       'Array of tags to filter metrics by. e.g. ["kube_deployment:api-gateway", "env:prod"]',
     ),
+  windowSeconds: z
+    .number()
+    .optional()
+    .describe(
+      'The number of seconds of look back (from now) to apply to the filter. Default value is 3600 (1 hour), maximum value is 2,592,000 (30 days).',
+    ),
 })
 
 export type FilterMetricsByTagsArgs = z.infer<

@@ -293,14 +293,26 @@ describe('Tag validation for metrics', () => {
 })
 
 describe('filter_metrics_by_tags', () => {
-  it('should filter metrics by tags using v1 API', async () => {
-    const mockV1Api: import('@datadog/datadog-api-client').v1.MetricsApi = {
-      listActiveMetrics: async () => ({
-        metrics: ['metric1', 'metric2'],
+  it('should filter metrics by tags using v2 API', async () => {
+    const mockV2Api: InstanceType<
+      typeof import('@datadog/datadog-api-client').v2.MetricsApi
+    > = {
+      listTagConfigurations: async () => ({
+        data: [
+          { id: 'metric1', type: 'metrics' },
+          { id: 'metric2', type: 'metrics' },
+        ],
+        meta: { page: { totalCount: 2 } },
       }),
+    } as unknown as InstanceType<
+      typeof import('@datadog/datadog-api-client').v2.MetricsApi
+    >
+
+    const mockV1Api: import('@datadog/datadog-api-client').v1.MetricsApi = {
+      queryMetrics: async () => ({}),
     } as unknown as import('@datadog/datadog-api-client').v1.MetricsApi
 
-    const handlers = createMetricsToolHandlers(mockV1Api)
+    const handlers = createMetricsToolHandlers(mockV1Api, mockV2Api)
 
     const result = (await handlers.filter_metrics_by_tags({
       method: 'tools/call',
@@ -319,14 +331,79 @@ describe('filter_metrics_by_tags', () => {
     expect(result.content[0].text).toContain('metric2')
   })
 
-  it('should handle API errors gracefully', async () => {
+  it('should filter metrics by tags with custom time window', async () => {
+    const mockV2Api: InstanceType<
+      typeof import('@datadog/datadog-api-client').v2.MetricsApi
+    > = {
+      listTagConfigurations: async () => ({
+        data: [{ id: 'metric1', type: 'metrics' }],
+        meta: { page: { totalCount: 1 } },
+      }),
+    } as unknown as InstanceType<
+      typeof import('@datadog/datadog-api-client').v2.MetricsApi
+    >
+
     const mockV1Api: import('@datadog/datadog-api-client').v1.MetricsApi = {
-      listActiveMetrics: async () => {
-        throw new Error('API Error')
+      queryMetrics: async () => ({}),
+    } as unknown as import('@datadog/datadog-api-client').v1.MetricsApi
+
+    const handlers = createMetricsToolHandlers(mockV1Api, mockV2Api)
+
+    const result = (await handlers.filter_metrics_by_tags({
+      method: 'tools/call',
+      params: {
+        name: 'filter_metrics_by_tags',
+        arguments: {
+          tags: ['kube_deployment:api-gateway'],
+          windowSeconds: 7200, // 2 hours
+        },
       },
+    } as z.infer<
+      typeof CallToolRequestSchema
+    >)) as unknown as DatadogToolResponse
+
+    expect(result.content[0].text).toContain('Found 1 metrics with tags')
+    expect(result.content[0].text).toContain('in the last 7200 seconds')
+  })
+
+  it('should handle missing v2 API instance', async () => {
+    const mockV1Api: import('@datadog/datadog-api-client').v1.MetricsApi = {
+      queryMetrics: async () => ({}),
     } as unknown as import('@datadog/datadog-api-client').v1.MetricsApi
 
     const handlers = createMetricsToolHandlers(mockV1Api)
+
+    await expect(
+      handlers.filter_metrics_by_tags({
+        method: 'tools/call',
+        params: {
+          name: 'filter_metrics_by_tags',
+          arguments: {
+            tags: ['kube_deployment:api-gateway'],
+          },
+        },
+      } as z.infer<typeof CallToolRequestSchema>),
+    ).rejects.toThrow(
+      'v2 API instance is required for filtering metrics by tags',
+    )
+  })
+
+  it('should handle API errors gracefully', async () => {
+    const mockV2Api: InstanceType<
+      typeof import('@datadog/datadog-api-client').v2.MetricsApi
+    > = {
+      listTagConfigurations: async () => {
+        throw new Error('API Error')
+      },
+    } as unknown as InstanceType<
+      typeof import('@datadog/datadog-api-client').v2.MetricsApi
+    >
+
+    const mockV1Api: import('@datadog/datadog-api-client').v1.MetricsApi = {
+      queryMetrics: async () => ({}),
+    } as unknown as import('@datadog/datadog-api-client').v1.MetricsApi
+
+    const handlers = createMetricsToolHandlers(mockV1Api, mockV2Api)
 
     await expect(
       handlers.filter_metrics_by_tags({

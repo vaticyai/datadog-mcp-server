@@ -205,25 +205,34 @@ export const createMetricsToolHandlers = (
       }
     },
     filter_metrics_by_tags: async (request) => {
-      const { tags } = FilterMetricsByTagsZodSchema.parse(
+      if (!v2ApiInstance) {
+        throw new Error(
+          'v2 API instance is required for filtering metrics by tags',
+        )
+      }
+
+      const { tags, windowSeconds } = FilterMetricsByTagsZodSchema.parse(
         request.params.arguments,
       )
       log(
         'info',
         `[filter_metrics_by_tags] Filtering metrics by tags:`,
         JSON.stringify(tags),
+        'windowSeconds:',
+        windowSeconds,
       )
 
       try {
-        // Use the v1 API to list active metrics with tag filter
-        // According to Datadog API docs, we should use listActiveMetrics with tagFilter parameter
-        const tagFilter = tags.join(',')
+        // Convert tags array to filter string format
+        // Multiple tags are combined with AND logic
+        const filterTags = tags.join(',')
 
-        log('info', `[filter_metrics_by_tags] Using tagFilter:`, tagFilter)
+        log('info', `[filter_metrics_by_tags] Using filterTags:`, filterTags)
 
-        const response = await apiInstance.listActiveMetrics({
-          from: Math.floor(Date.now() / 1000) - 3600, // Last hour
-          tagFilter: tagFilter,
+        // Use the v2 API to list metrics with tag filter
+        const response = await v2ApiInstance.listTagConfigurations({
+          filterTags,
+          windowSeconds,
         })
 
         log(
@@ -233,13 +242,21 @@ export const createMetricsToolHandlers = (
         )
 
         // Extract metric names from the response
-        const metricNames = response.metrics || []
+        const metricNames =
+          response.data
+            ?.map((item) => {
+              if (item && typeof item === 'object' && 'id' in item) {
+                return item.id
+              }
+              return null
+            })
+            .filter(Boolean) || []
 
         return {
           content: [
             {
               type: 'text',
-              text: `Found ${metricNames.length} metrics with tags ${JSON.stringify(tags)}: ${JSON.stringify(metricNames)}`,
+              text: `Found ${metricNames.length} metrics with tags ${JSON.stringify(tags)}${windowSeconds ? ` in the last ${windowSeconds} seconds` : ' in the last hour'}: ${JSON.stringify(metricNames)}`,
             },
           ],
         }
