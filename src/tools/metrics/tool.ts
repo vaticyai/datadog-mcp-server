@@ -1,11 +1,18 @@
 import { ExtendedTool, ToolHandlers } from '../../utils/types'
 import { v1 } from '@datadog/datadog-api-client'
 import { createToolSchema } from '../../utils/tool'
-import { QueryMetricsZodSchema, GetMetricsZodSchema } from './schema'
+import {
+  QueryMetricsZodSchema,
+  GetMetricsZodSchema,
+  FilterMetricsByTagsZodSchema,
+} from './schema'
 import { log, parseMetricQuery } from '../../utils/helper'
 import type { v2 as V2Namespace } from '@datadog/datadog-api-client'
 
-type MetricsToolName = 'query_metrics' | 'search_metrics'
+type MetricsToolName =
+  | 'query_metrics'
+  | 'search_metrics'
+  | 'filter_metrics_by_tags'
 type MetricsTool = ExtendedTool<MetricsToolName>
 
 export const METRICS_TOOLS: MetricsTool[] = [
@@ -18,6 +25,11 @@ export const METRICS_TOOLS: MetricsTool[] = [
     GetMetricsZodSchema,
     'search_metrics',
     'Searches a sub-string from all DataDog metrics names. Please provide a query string to filter the metrics.',
+  ),
+  createToolSchema(
+    FilterMetricsByTagsZodSchema,
+    'filter_metrics_by_tags',
+    'Returns all metric names that have the specified tags. Please provide a list of tags to find metrics that have these tags.',
   ),
 ] as const
 
@@ -190,6 +202,67 @@ export const createMetricsToolHandlers = (
             text: `Fetched metrics: ${JSON.stringify(response)}`,
           },
         ],
+      }
+    },
+    filter_metrics_by_tags: async (request) => {
+      if (!v2ApiInstance) {
+        throw new Error(
+          'v2 API instance is required for filtering metrics by tags',
+        )
+      }
+
+      const { tags, windowSeconds } = FilterMetricsByTagsZodSchema.parse(
+        request.params.arguments,
+      )
+      log(
+        'info',
+        `[filter_metrics_by_tags] Filtering metrics by tags:`,
+        JSON.stringify(tags),
+        'windowSeconds:',
+        windowSeconds,
+      )
+
+      try {
+        // Convert tags array to filter string format
+        // Multiple tags are combined with AND logic
+        const filterTags = tags.join(',')
+
+        log('info', `[filter_metrics_by_tags] Using filterTags:`, filterTags)
+
+        // Use the v2 API to list metrics with tag filter
+        const response = await v2ApiInstance.listTagConfigurations({
+          filterTags,
+          windowSeconds,
+        })
+
+        log(
+          'info',
+          `[filter_metrics_by_tags] Response:`,
+          JSON.stringify(response),
+        )
+
+        // Extract metric names from the response
+        const metricNames =
+          response.data
+            ?.map((item) => {
+              if (item && typeof item === 'object' && 'id' in item) {
+                return item.id
+              }
+              return null
+            })
+            .filter(Boolean) || []
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Found ${metricNames.length} metrics with tags ${JSON.stringify(tags)}${windowSeconds ? ` in the last ${windowSeconds} seconds` : ' in the last hour'}: ${JSON.stringify(metricNames)}`,
+            },
+          ],
+        }
+      } catch (error) {
+        log('error', `[filter_metrics_by_tags] Error:`, error)
+        throw new Error(`Failed to filter metrics by tags: ${error}`)
       }
     },
   }
