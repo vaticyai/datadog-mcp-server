@@ -5,6 +5,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
   pull_request:
     branches:
       - main
@@ -13,7 +15,7 @@ jobs:
   docker:
     name: Build and Push Application Image
     runs-on: ubuntu-22.04
-    if: github.ref == 'refs/heads/main' || contains(github.ref, 'refs/tags')
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
     outputs:
       image_digest: ${{ steps.get_digest.outputs.image_digest }}
 
@@ -31,13 +33,27 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       
+      - name: Determine image tags
+        id: tags
+        run: |
+          if [[ $GITHUB_REF == refs/tags/* ]]; then
+            # For tags, use the tag name (without refs/tags/ prefix)
+            TAG_NAME=${GITHUB_REF#refs/tags/}
+            echo "tags=ghcr.io/${{ github.repository_owner }}/datadog-mcp-server:$TAG_NAME,ghcr.io/${{ github.repository_owner }}/datadog-mcp-server:latest" >> $GITHUB_OUTPUT
+            echo "Using tag: $TAG_NAME"
+          else
+            # For main branch, use the branch name
+            echo "tags=ghcr.io/${{ github.repository_owner }}/datadog-mcp-server:${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            echo "Using branch: ${{ github.ref_name }}"
+          fi
+      
       - name: Build and push application image
         id: build
         uses: docker/build-push-action@v5
         with:
           file: Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/datadog-mcp-server:${{ github.ref_name }}
+          tags: ${{ steps.tags.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           outputs: type=image,name=ghcr.io/${{ github.repository_owner }}/datadog-mcp-server:${{ github.ref_name }},push=true
