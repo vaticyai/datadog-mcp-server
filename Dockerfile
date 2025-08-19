@@ -37,20 +37,3 @@ COPY --from=installer /app/node_modules /app/node_modules
 # Expose port if needed (Not explicitly mentioned, MCP runs via stdio, so not needed)
 
 CMD ["node", "build/index.js"]
-
-## Stage 3: Create the final image with supergateway and Node.js
-FROM ghcr.io/supercorp-ai/supergateway:latest
-
-# Install Node.js (Alpine-based)
-RUN apk add --no-cache nodejs npm
-
-WORKDIR /app
-
-# Copy built files and node_modules from release stage
-COPY --from=release /app/build /app/build
-COPY --from=release /app/node_modules /app/node_modules
-
-EXPOSE 8080
-
-# Run MCP server with supergateway
-CMD ["supergateway", "--stdio", "node /app/build/index.js stdio", "--port", "8080"]
