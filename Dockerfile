@@ -50,7 +50,7 @@ WORKDIR /app
 COPY --from=release /app/build /app/build
 COPY --from=release /app/node_modules /app/node_modules
 
-EXPOSE 8000
+EXPOSE 8080
 
 # Run MCP server with supergateway
-CMD ["supergateway", "--stdio", "node /app/build/index.js stdio"]
+CMD ["supergateway", "--stdio", "node /app/build/index.js stdio", "--port", "8080"]
